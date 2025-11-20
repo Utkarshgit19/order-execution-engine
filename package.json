@@ -1,0 +1,33 @@
+{
+  "name": "order-execution-engine",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "worker": "ts-node-dev --respawn --transpile-only src/queue/orderWorker.ts"
+  },
+  "dependencies": {
+    "@fastify/websocket": "^11.2.0",
+    "@meteora-ag/dynamic-amm-sdk": "^1.4.1",
+    "@raydium-io/raydium-sdk-v2": "^0.2.30-alpha",
+    "@solana/spl-token": "^0.4.14",
+    "@solana/web3.js": "^1.98.4",
+    "bs58": "^6.0.0",
+    "bullmq": "^5.64.0",
+    "dotenv": "^17.2.3",
+    "fastify": "^5.6.2",
+    "ioredis": "^5.8.2",
+    "pg": "^8.16.3",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/bs58": "^4.0.4",
+    "@types/node": "^24.10.1",
+    "@types/pg": "^8.15.6",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.9.3"
+  }
+}
