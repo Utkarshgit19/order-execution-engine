@@ -58,6 +58,17 @@ export class DexRouter {
       this.getMeteoraQuote(order)
     ]);
 
+    const bestQuote =
+  rayQuote.outAmount >= metQuote.outAmount ? rayQuote : metQuote;
+
+  console.log(
+    "Routing decision:",
+    "raydium out =", rayQuote.outAmount,
+    "meteora out =", metQuote.outAmount,
+    "chosen =", bestQuote.dex
+);
+
+
     return rayQuote.outAmount >= metQuote.outAmount ? rayQuote : metQuote;
   }
 
