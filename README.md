@@ -82,3 +82,118 @@ If everything is correct, the terminal should show:
 Order worker started
 Server listening on http://localhost:3000
 ```
+## 📡 API Usage
+
+### 📤 POST `/api/orders/execute`
+Submit a **market order**.
+
+#### 📝 Request Body
+```json
+{
+  "tokenIn": "SOL",
+  "tokenOut": "USDC",
+  "amountIn": 0.1,
+  "type": "market"
+}
+```
+
+#### 📥 Response
+```json
+{
+  "orderId": "a116810c-d93d-4075-b838-969aaf1c61fb"
+}
+```
+
+> ⚠️ The returned `orderId` will be used to subscribe via WebSocket.
+
+---
+
+## 🔌 WebSocket Updates
+
+### URL
+```
+ws://<host>/api/orders/ws?orderId=<id>
+```
+
+#### Example
+```
+ws://localhost:3000/api/orders/ws?orderId=a116810c-d93d-4075-b838-969aaf1c61fb
+```
+
+#### 💬 Example WebSocket Messages
+```json
+{"status":"ws_connected","orderId":"..."}
+{"status":"pending"}
+{"status":"routing"}
+{"status":"building","dexChosen":"raydium"}
+{"status":"submitted","txHash":"MOCK_RAYDIUM_abc123"}
+{"status":"confirmed","txHash":"MOCK_RAYDIUM_abc123","executedPrice":99.2}
+```
+
+---
+
+## 🏗️ Design Decisions
+
+### 💱 Market Orders Only
+Supports **only market orders** to keep the demo focused on:
+- DEX routing
+- Worker + Queue infra
+- Real-time execution updates  
+Not price-time priority or order books.
+
+### 🌀 Mock Raydium + Meteora Router
+`DexRouter` implements `getBestQuote()` and `executeSwap()` with **mock prices + txHashes** because:
+- easier to run locally
+- deterministic testing
+- avoids breakage from changing Devnet pools  
+The structure makes it easy to plug in real SDK calls later.
+
+### 🎯 Queue + Background Worker
+Decouples API from execution:
+- API returns instantly
+- worker handles retries/backoff
+- scalable to multiple workers  
+For simplicity, the worker runs in the same process but still uses **Redis/BullMQ**.
+
+### 🔔 WebSocket Per Order
+Backend keeps `orderId → WebSocket` mapping.  
+If a client connects late, backend loads the **latest state from PostgreSQL** and sends a snapshot.
+
+---
+
+## 🎬 How to Run the Demo (3–5 concurrent orders)
+
+1️⃣ Start the server:
+```bash
+npm run dev
+```
+
+2️⃣ In Postman (or any API tool):
+- Send `POST /api/orders/execute` **3–5 times**
+- Collect the returned `orderId`s
+
+3️⃣ For each orderId, open WebSocket:
+```
+ws://<host>/api/orders/ws?orderId=<id>
+```
+
+4️⃣ Watch statuses progress in real time:
+```
+pending → routing → building → submitted → confirmed
+```
+
+📌 The server logs show DEX decisions (Raydium / Meteora).
+
+---
+
+## 🧪 Tests
+
+Tests cover:
+- routing logic
+- queue/worker flow
+- WebSocket broadcasts  
+
+Run:
+```bash
+npm test
+```
