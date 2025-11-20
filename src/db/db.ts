@@ -1,7 +1,18 @@
 import { Pool } from "pg";
-import { env } from "../config/env";
+import "dotenv/config";
 
-export const pool = new Pool(env.pg);
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error("DATABASE_URL is not set");
+}
+
+export const pool = new Pool({
+  connectionString,
+  ssl: {
+    rejectUnauthorized: false, // needed for Neon/Render; safe for demo
+  },
+});
 
 export async function initDb() {
   await pool.query(`
@@ -15,9 +26,10 @@ export async function initDb() {
       dex_chosen TEXT,
       tx_hash TEXT,
       executed_price NUMERIC,
-      error TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
   `);
+
+  console.log("DB initialized (orders table ready)");
 }

@@ -1,6 +1,6 @@
 // src/queue/orderWorker.ts
 import { Worker, Job } from "bullmq";
-import { redisConnection } from "./orderQueue";
+// import { redisConnection } from "./orderQueue";
 import { pool } from "../db/db";
 import { DexRouter } from "../services/dexRouter";
 import { createConnection, loadWallet } from "../services/solanaClient";
@@ -8,9 +8,13 @@ import { updateOrderStatus } from "../services/orderService";
 import { sendOrderStatus } from "../ws/orderWs";
 import { Order, OrderStatus } from "../types/order";
 
+import { redisConnection } from "../redis";
+
 interface OrderJobData {
   orderId: string;
 }
+
+
 
 async function fetchOrder(orderId: string): Promise<Order | null> {
   const res = await pool.query(
