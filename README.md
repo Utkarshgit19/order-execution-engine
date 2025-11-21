@@ -13,6 +13,11 @@ This is an order execution engine built as part of an application task.
 
 ---
 
+### 🌐 Live Deployment
+
+The backend is deployed on Render and publicly accessible at: https://order-execution-engine-tt59.onrender.com
+Use this base URL to interact with the REST API and WebSocket endpoints.
+
 ## Architecture Overview
 
 - **Fastify** + `@fastify/websocket` – HTTP & WS server
@@ -67,8 +72,6 @@ PG_DATABASE=orders_db
 
 REDIS_URL=redis://localhost:6379
 
-SOLANA_CLUSTER=devnet
-SOLANA_RPC_URL=https://api.devnet.solana.com
 ```
 
 ### 5️⃣ Start the Server
