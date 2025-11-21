@@ -47,67 +47,78 @@ export function startOrderWorker() {
   });
 
   const worker = new Worker<OrderJobData>(
-    "orders",
-    async (job: Job<OrderJobData>) => {
-      const { orderId } = job.data;
-      console.log("Worker: processing order", orderId);
+  "orders",
+  async (job: Job<OrderJobData>) => {
+    const { orderId } = job.data;
+    console.log("Worker: processing order", orderId);
 
-      await new Promise((res) => setTimeout(res, 1000));
-
-      const order = await fetchOrder(orderId);
-      if (!order) {
-        console.warn("Worker: order not found", orderId);
-        return;
-      }
-
-     // --- 1) Status: routing ---
-sendOrderStatus(order.id, { status: "routing" });
-await updateOrderStatus(order.id, "routing");
-
-// --- 2) Route quote selection ---
-const bestQuote = await dexRouter.getBestQuote(order);
-
-// --- 3) Status: building ---
-sendOrderStatus(order.id, {
-  status: "building",
-  dexChosen: bestQuote.dex,
-});
-await updateOrderStatus(order.id, "building", {
-  dexChosen: bestQuote.dex,
-});
-
-// --- Artificial delay to visualize steps nicely ---
-await new Promise((res) => setTimeout(res, 800));
-
-const { txHash, executedPrice } = await dexRouter.executeSwap(
-  bestQuote,
-  order
-);
-
-// 5) Status: submitted
-sendOrderStatus(order.id, {
-  status: "submitted",
-  txHash,
-});
-await updateOrderStatus(order.id, "submitted", { txHash });
-
-// 6) Status: confirmed
-sendOrderStatus(order.id, {
-  status: "confirmed",
-  txHash,
-  executedPrice,
-});
-await updateOrderStatus(order.id, "confirmed", {
-  txHash,
-  executedPrice,
-});
-
-      console.log("Worker: finished order", orderId);
-    },
-    {
-      connection: redisConnection,
+    const order = await fetchOrder(orderId);
+    if (!order) {
+      console.warn("Worker: order not found", orderId);
+      return;
     }
-  );
+
+    // Small initial delay so the client can open WS
+    await new Promise((res) => setTimeout(res, 1500));
+
+    // pending
+    sendOrderStatus(order.id, { status: "pending" });
+    await updateOrderStatus(order.id, "pending");
+
+    await new Promise((res) => setTimeout(res, 1500));
+
+    // routing
+    sendOrderStatus(order.id, { status: "routing" });
+    await updateOrderStatus(order.id, "routing");
+
+    await new Promise((res) => setTimeout(res, 1500));
+
+    // choose best quote
+    const bestQuote = await dexRouter.getBestQuote(order);
+
+    // building
+    sendOrderStatus(order.id, {
+      status: "building",
+      dexChosen: bestQuote.dex,
+    });
+    await updateOrderStatus(order.id, "building", {
+      dexChosen: bestQuote.dex,
+    });
+
+    await new Promise((res) => setTimeout(res, 1500));
+
+    // execute swap
+    const { txHash, executedPrice } = await dexRouter.executeSwap(
+      bestQuote,
+      order
+    );
+
+    // submitted
+    sendOrderStatus(order.id, {
+      status: "submitted",
+      txHash,
+    });
+    await updateOrderStatus(order.id, "submitted", { txHash });
+
+    await new Promise((res) => setTimeout(res, 1500));
+
+    // confirmed
+    sendOrderStatus(order.id, {
+      status: "confirmed",
+      txHash,
+      executedPrice,
+    });
+    await updateOrderStatus(order.id, "confirmed", {
+      txHash,
+      executedPrice,
+    });
+
+    console.log("Worker: finished order", orderId);
+  },
+  {
+    connection: redisConnection,
+  }
+);
 
   worker.on("completed", (job) => {
     console.log("Worker: job completed", job.id);
