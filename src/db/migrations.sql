@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS orders (
   dex_chosen TEXT,
   tx_hash TEXT,
   executed_price NUMERIC,
-  error TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
