@@ -1,8 +1,6 @@
-// src/routes/orders.ts
 import { FastifyInstance } from "fastify";
 import { createOrder } from "../services/orderService";
 import { registerOrderSocket } from "../ws/orderWs";
-import { pool } from "../db/db";
 
 export async function ordersRoutes(app: FastifyInstance) {
   // HTTP: create order
@@ -40,7 +38,7 @@ export async function ordersRoutes(app: FastifyInstance) {
     return reply.send({ orderId: order.id });
   });
 
-  // WebSocket: status stream
+  // WebSocket: live stream only
   app.get(
     "/orders/ws",
     { websocket: true },
@@ -65,67 +63,16 @@ export async function ordersRoutes(app: FastifyInstance) {
 
         const socket: any = (connection as any).socket ?? connection;
 
-        // Register socket for live updates from worker
+        // register this socket so sendOrderStatus can push updates
         registerOrderSocket(orderId, socket);
 
-        // Send DB snapshot + history (in case worker already finished)
-        (async () => {
-          try {
-            const res = await pool.query(
-              `
-              SELECT status, status_history, dex_chosen, tx_hash, executed_price
-              FROM orders
-              WHERE id = $1
-              `,
-              [orderId]
-            );
-
-            if (res.rows.length === 0) {
-              socket.send(
-                JSON.stringify({
-                  status: "unknown_order",
-                  message: "No order found with this id",
-                })
-              );
-              return;
-            }
-
-            const row = res.rows[0];
-
-            // Immediate connection acknowledgment
-            socket.send(
-              JSON.stringify({
-                status: "ws_connected",
-                orderId,
-              })
-            );
-
-            // Replay history events
-            if (Array.isArray(row.status_history)) {
-              for (const event of row.status_history) {
-                socket.send(JSON.stringify(event));
-              }
-            }
-
-            // Final snapshot
-            socket.send(
-              JSON.stringify({
-                latestStatus: row.status,
-                dexChosen: row.dex_chosen,
-                txHash: row.tx_hash,
-                executedPrice: row.executed_price,
-              })
-            );
-          } catch (err) {
-            console.error("WS: failed to load order from DB", err);
-            socket.send(
-              JSON.stringify({
-                status: "error",
-                message: "Failed to load order from DB",
-              })
-            );
-          }
-        })();
+        // optional handshake
+        socket.send(
+          JSON.stringify({
+            status: "ws_connected",
+            orderId,
+          })
+        );
       } catch (err) {
         console.error("WS handler error:", err);
       }
