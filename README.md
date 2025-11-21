@@ -24,7 +24,7 @@ Use this base URL to interact with the REST API and WebSocket endpoints.
 - **BullMQ + Redis** – job queue and background worker
 - **PostgreSQL** – `orders` table (status, dexChosen, txHash, executedPrice)
 - **DexRouter** – compares Raydium vs Meteora mock quotes and picks best
-- **WebSockets** – one WS per orderId for live status
+- **WebSockets** – one WS per orderId for live status 
 
 Order lifecycle:
 
@@ -200,3 +200,35 @@ Run:
 ```bash
 npm test
 ```
+### 💱 Why Only Market Orders?
+
+This engine intentionally supports **only market orders** instead of limit or conditional orders.  
+The goal of the project is to demonstrate a **DEX execution pipeline**, not an entire trading system.
+
+#### 🔍 Why Market Orders?
+Market orders execute **immediately at the best available price**, which aligns perfectly with the architecture of this project:
+
+- 🔁 **Real-time routing** (Raydium vs. Meteora mock quotes)
+- ⚙️ **Background execution via BullMQ**
+- 📡 **Live WebSocket status updates**
+- 💾 **Instant database persistence**
+
+Because they are executed immediately, they avoid complex waiting/monitoring logic.
+
+#### 🚫 Why Not Limit or Conditional Orders (Yet)?
+Supporting limit orders would require:
+- ⏱️ Price monitoring or order book subscriptions
+- 🔔 Trigger logic to execute when price is reached
+- 🚫 Order expiration or rejection conditions
+- 📌 Persistent delayed queues and more DB states
+
+This would shift the focus away from **execution architecture** and into **market logic + matching**, which is **not the purpose** of this task.
+
+#### 🎯 Conclusion
+Choosing market orders keeps the project:
+- **Focused** on execution infrastructure
+- **Simple to test** (no waiting for price triggers)
+- **Close to real trading flows**
+- **Extendable** — limit orders can be added later via a trigger layer, without major rewrites
+
+> 📌 The current design intentionally isolates routing + execution, so adding limit orders later would require adding a **price trigger layer**, not rebuilding the engine.
