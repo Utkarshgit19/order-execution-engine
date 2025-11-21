@@ -52,7 +52,7 @@ export function startOrderWorker() {
       const { orderId } = job.data;
       console.log("Worker: processing order", orderId);
 
-      await new Promise((res) => setTimeout(res, 500));
+      await new Promise((res) => setTimeout(res, 1000));
 
       const order = await fetchOrder(orderId);
       if (!order) {
@@ -60,49 +60,47 @@ export function startOrderWorker() {
         return;
       }
 
-      // pending
-      sendOrderStatus(orderId, { status: "pending" });
-      await updateOrderStatus(orderId, "pending");
+     // --- 1) Status: routing ---
+sendOrderStatus(order.id, { status: "routing" });
+await updateOrderStatus(order.id, "routing");
 
-      // routing
-      sendOrderStatus(orderId, { status: "routing" });
-      await updateOrderStatus(orderId, "routing");
+// --- 2) Route quote selection ---
+const bestQuote = await dexRouter.getBestQuote(order);
 
-      // quote (mock)
-      const bestQuote = await dexRouter.getBestQuote(order);
+// --- 3) Status: building ---
+sendOrderStatus(order.id, {
+  status: "building",
+  dexChosen: bestQuote.dex,
+});
+await updateOrderStatus(order.id, "building", {
+  dexChosen: bestQuote.dex,
+});
 
-      // building
-      sendOrderStatus(orderId, {
-        status: "building",
-        dexChosen: bestQuote.dex,
-      });
-      await updateOrderStatus(orderId, "building", {
-        dexChosen: bestQuote.dex,
-      });
+// --- Artificial delay to visualize steps nicely ---
+await new Promise((res) => setTimeout(res, 800));
 
-      // submitted
-      const { txHash, executedPrice } = await dexRouter.executeSwap(
-        bestQuote,
-        order
-      );
-      sendOrderStatus(orderId, {
-        status: "submitted",
-        txHash,
-      });
-      await updateOrderStatus(orderId, "submitted", {
-        txHash,
-      });
+const { txHash, executedPrice } = await dexRouter.executeSwap(
+  bestQuote,
+  order
+);
 
-      // confirmed
-      sendOrderStatus(orderId, {
-        status: "confirmed",
-        txHash,
-        executedPrice,
-      });
-      await updateOrderStatus(orderId, "confirmed", {
-        txHash,
-        executedPrice,
-      });
+// 5) Status: submitted
+sendOrderStatus(order.id, {
+  status: "submitted",
+  txHash,
+});
+await updateOrderStatus(order.id, "submitted", { txHash });
+
+// 6) Status: confirmed
+sendOrderStatus(order.id, {
+  status: "confirmed",
+  txHash,
+  executedPrice,
+});
+await updateOrderStatus(order.id, "confirmed", {
+  txHash,
+  executedPrice,
+});
 
       console.log("Worker: finished order", orderId);
     },
