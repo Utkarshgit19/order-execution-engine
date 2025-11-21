@@ -47,23 +47,26 @@ export async function updateOrderStatus(
     dexChosen?: "raydium" | "meteora";
     txHash?: string;
     executedPrice?: number;
-    error?: string;              // <- add this line
+    error?: string;
   } = {}
 ): Promise<void> {
   await pool.query(
     `
     UPDATE orders
-SET status = $2,
-    status_history = status_history || jsonb_build_array(jsonb_build_object(
-        'status', $2,
-        'timestamp', NOW()
-    )),
-    dex_chosen = COALESCE($3, dex_chosen),
-    tx_hash = COALESCE($4, tx_hash),
-    executed_price = COALESCE($5, executed_price),
-    updated_at = NOW()
-WHERE id = $1;
-  `,
-    [orderId, status, extra.dexChosen ?? null, extra.txHash ?? null, extra.executedPrice ?? null]
+    SET
+      status = $2::text,
+      dex_chosen = COALESCE($3::text, dex_chosen),
+      tx_hash = COALESCE($4::text, tx_hash),
+      executed_price = COALESCE($5::numeric, executed_price),
+      updated_at = NOW()
+    WHERE id = $1::uuid
+    `,
+    [
+      orderId,
+      status,
+      extra.dexChosen ?? null,
+      extra.txHash ?? null,
+      extra.executedPrice ?? null,
+    ]
   );
 }
