@@ -200,6 +200,24 @@ Run:
 ```bash
 npm test
 ```
+### 📬 Postman Collection
+The API can be tested using the Postman collection located at:
+`/postman/order-execution-engine.postman_collection.json`
+
+### 🔍 Test Coverage Overview
+
+| Area | Technology | What We Test |
+|------|-------------|--------------|
+| Queue | BullMQ | Worker returns job result, closes cleanly |
+| Routing | Pure function | Dex chosen based on best output |
+| WebSocket | Fake socket simulation | Connection lifecycle + status events |
+
+### 🧪 Run Tests
+
+```bash
+npm test
+
+
 ### 💱 Why Only Market Orders?
 
 This engine intentionally supports **only market orders** instead of limit or conditional orders.  

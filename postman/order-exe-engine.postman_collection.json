@@ -1,0 +1,41 @@
+{
+	"info": {
+		"_postman_id": "007a2f88-3685-4f76-8de8-2af5b481514d",
+		"name": "order-exe-engine",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "42592608"
+	},
+	"item": [
+		{
+			"name": "Execute Market Order",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"tokenIn\": \"SOL\",\r\n  \"tokenOut\": \"USDC\",\r\n  \"amountIn\": 0.1,\r\n  \"type\": \"market\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://order-execution-engine-tt59.onrender.com/api/orders/execute",
+					"protocol": "https",
+					"host": [
+						"order-execution-engine-tt59",
+						"onrender",
+						"com"
+					],
+					"path": [
+						"api",
+						"orders",
+						"execute"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
