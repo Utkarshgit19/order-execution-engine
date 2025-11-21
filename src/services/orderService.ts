@@ -4,6 +4,7 @@ import { Order, OrderType, OrderStatus } from "../types/order";
 import { randomUUID } from "crypto";
 import { orderQueue } from "../queue/orderQueue";
 
+
 export async function createOrder(input: {
   tokenIn: string;
   tokenOut: string;
@@ -52,12 +53,16 @@ export async function updateOrderStatus(
   await pool.query(
     `
     UPDATE orders
-    SET status = $2,
-        dex_chosen = COALESCE($3, dex_chosen),
-        tx_hash = COALESCE($4, tx_hash),
-        executed_price = COALESCE($5, executed_price),
-        updated_at = NOW()
-    WHERE id = $1
+SET status = $2,
+    status_history = status_history || jsonb_build_array(jsonb_build_object(
+        'status', $2,
+        'timestamp', NOW()
+    )),
+    dex_chosen = COALESCE($3, dex_chosen),
+    tx_hash = COALESCE($4, tx_hash),
+    executed_price = COALESCE($5, executed_price),
+    updated_at = NOW()
+WHERE id = $1;
   `,
     [orderId, status, extra.dexChosen ?? null, extra.txHash ?? null, extra.executedPrice ?? null]
   );

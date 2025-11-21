@@ -1,10 +1,11 @@
+// src/routes/orders.ts
 import { FastifyInstance } from "fastify";
 import { createOrder } from "../services/orderService";
 import { registerOrderSocket } from "../ws/orderWs";
 import { pool } from "../db/db";
 
 export async function ordersRoutes(app: FastifyInstance) {
-  // POST /api/orders/execute  (keep whatever you already have here)
+  // HTTP: create order
   app.post("/orders/execute", async (req, reply) => {
     const body = req.body as {
       tokenIn?: string;
@@ -14,7 +15,9 @@ export async function ordersRoutes(app: FastifyInstance) {
     };
 
     if (!body?.tokenIn || !body?.tokenOut || body.amountIn == null) {
-      return reply.status(400).send({ error: "tokenIn, tokenOut, amountIn are required" });
+      return reply
+        .status(400)
+        .send({ error: "tokenIn, tokenOut, amountIn are required" });
     }
 
     if (body.amountIn <= 0) {
@@ -22,98 +25,110 @@ export async function ordersRoutes(app: FastifyInstance) {
     }
 
     if (body.type && body.type !== "market") {
-      return reply.status(400).send({ error: "Only 'market' order type is supported" });
+      return reply
+        .status(400)
+        .send({ error: "Only 'market' order type is supported" });
     }
 
     const order = await createOrder({
       tokenIn: body.tokenIn,
       tokenOut: body.tokenOut,
       amountIn: body.amountIn,
-      type: "market"
+      type: "market",
     });
 
     return reply.send({ orderId: order.id });
   });
 
-  // ✅ FIXED WebSocket route
-   app.get(
-  "/orders/ws",
-  { websocket: true },
-  (connection, req) => {
-    try {
-      const rawUrl =
-        (req as any).raw?.url ??
-        (req as any).url ??
-        "";
+  // WebSocket: status stream
+  app.get(
+    "/orders/ws",
+    { websocket: true },
+    (connection, req) => {
+      try {
+        const rawUrl =
+          (req as any).raw?.url ??
+          (req as any).url ??
+          "";
 
-      const url = new URL(rawUrl, "http://localhost");
-      const orderId = url.searchParams.get("orderId");
+        const url = new URL(rawUrl, "http://localhost");
+        const orderId = url.searchParams.get("orderId");
 
-      console.log("WS connected, rawUrl =", rawUrl, "orderId =", orderId);
+        console.log("WS connected, rawUrl =", rawUrl, "orderId =", orderId);
 
-      if (!orderId) {
-        connection.socket?.send?.(
-          JSON.stringify({ error: "Missing orderId query param" })
-        );
-        return;
-      }
+        if (!orderId) {
+          connection.socket?.send?.(
+            JSON.stringify({ error: "Missing orderId query param" })
+          );
+          return;
+        }
 
-      const socket: any = (connection as any).socket ?? connection;
+        const socket: any = (connection as any).socket ?? connection;
 
-      // register the socket so future sendOrderStatus() calls can reach it
-      registerOrderSocket(orderId, socket);
+        // Register socket for live updates from worker
+        registerOrderSocket(orderId, socket);
 
-      // 1) Send immediate "connected" message
-      socket.send(
-        JSON.stringify({
-          status: "ws_connected",
-          orderId,
-        })
-      );
-
-      // 2) ALSO send the latest status from DB (in case worker already finished)
-      (async () => {
-        try {
-          const res = await pool.query(
-            `
-              SELECT status, dex_chosen, tx_hash, executed_price
+        // Send DB snapshot + history (in case worker already finished)
+        (async () => {
+          try {
+            const res = await pool.query(
+              `
+              SELECT status, status_history, dex_chosen, tx_hash, executed_price
               FROM orders
               WHERE id = $1
-            `,
-            [orderId]
-          );
+              `,
+              [orderId]
+            );
 
-          if (res.rows.length > 0) {
+            if (res.rows.length === 0) {
+              socket.send(
+                JSON.stringify({
+                  status: "unknown_order",
+                  message: "No order found with this id",
+                })
+              );
+              return;
+            }
+
             const row = res.rows[0];
+
+            // Immediate connection acknowledgment
             socket.send(
               JSON.stringify({
-                status: row.status,
+                status: "ws_connected",
+                orderId,
+              })
+            );
+
+            // Replay history events
+            if (Array.isArray(row.status_history)) {
+              for (const event of row.status_history) {
+                socket.send(JSON.stringify(event));
+              }
+            }
+
+            // Final snapshot
+            socket.send(
+              JSON.stringify({
+                latestStatus: row.status,
                 dexChosen: row.dex_chosen,
                 txHash: row.tx_hash,
                 executedPrice: row.executed_price,
               })
             );
-          } else {
+          } catch (err) {
+            console.error("WS: failed to load order from DB", err);
             socket.send(
               JSON.stringify({
-                status: "unknown_order",
-                message: "No order found with this id",
+                status: "error",
+                message: "Failed to load order from DB",
               })
             );
           }
-        } catch (err) {
-          console.error("WS: failed to load order from DB", err);
-          socket.send(
-            JSON.stringify({
-              status: "error",
-              message: "Failed to load order from DB",
-            })
-          );
-        }
-      })();
-    } catch (err) {
-      console.error("WS handler error:", err);
+        })();
+      } catch (err) {
+        console.error("WS handler error:", err);
+      }
     }
-  }
-);
+  );
 }
